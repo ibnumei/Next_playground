@@ -4,23 +4,23 @@ import { useState, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { loginApi } from '@/lib/api';
 import { setToken } from '@/lib/auth';
-import { useTodoStore } from '@/store/todoStore';
+import { useAppStore } from '@/store/todoStore';
 import styles from './login.module.css';
 
 /**
  * Komponen halaman Login (Client Component).
- * Menangani form input, validasi, dan proses autentikasi ke API Laravel.
+ * Menangani form input email/password, validasi, dan proses autentikasi ke API Laravel.
  */
 export default function LoginPage() {
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
-  const setAuth = useTodoStore((s) => s.setAuth);
+  const setAuth = useAppStore((s) => s.setAuth);
 
   /**
-   * Handler submit form login — mengirim credentials ke API dan menyimpan token.
+   * Handler submit form login — mengirim email/password ke API dan menyimpan token + menus.
    */
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -28,10 +28,10 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const data = await loginApi(username, password);
-      // Simpan token ke cookie dan state global
+      const data = await loginApi(email, password);
+      // Simpan token ke cookie dan state global (token, user info, menus)
       setToken(data.token);
-      setAuth(data.token, data.user.username);
+      setAuth(data.token, data.user, data.menus);
       router.push('/dashboard');
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Login gagal.';
@@ -56,18 +56,18 @@ export default function LoginPage() {
         <p className={styles.subtitle}>Masuk untuk mengelola tugas Anda</p>
 
         <form onSubmit={handleSubmit} className={styles.form}>
-          {/* Input username */}
+          {/* Input email */}
           <div className={styles.inputGroup}>
-            <label htmlFor="username" className={styles.label}>Username</label>
+            <label htmlFor="email" className={styles.label}>Email</label>
             <input
-              id="username"
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               className={styles.input}
-              placeholder="Masukkan username"
+              placeholder="Masukkan email"
               required
-              autoComplete="username"
+              autoComplete="email"
             />
           </div>
 
@@ -104,9 +104,22 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <p className={styles.hint}>
-          Default: <strong>admin</strong> / <strong>admin123</strong>
-        </p>
+        {/* Credential hints untuk ketiga role */}
+        <div className={styles.hintGroup}>
+          <p className={styles.hintTitle}>Default credentials:</p>
+          <div className={styles.hintItem}>
+            <span className={`${styles.roleBadge} ${styles.roleMaker}`}>Maker</span>
+            <span>admin@example.com / admin123</span>
+          </div>
+          <div className={styles.hintItem}>
+            <span className={`${styles.roleBadge} ${styles.roleChecker}`}>Checker</span>
+            <span>checker@example.com / admin123</span>
+          </div>
+          <div className={styles.hintItem}>
+            <span className={`${styles.roleBadge} ${styles.roleViewer}`}>Viewer</span>
+            <span>viewer@example.com / admin123</span>
+          </div>
+        </div>
       </div>
     </div>
   );

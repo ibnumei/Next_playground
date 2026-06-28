@@ -1,10 +1,9 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
-import { Todo, fetchTodosApi, createTodoApi, updateTodoApi, deleteTodoApi } from '@/lib/api';
-import { getToken, removeToken } from '@/lib/auth';
-import { useTodoStore } from '@/store/todoStore';
+import { Todo, fetchTodosApi, createTodoApi, approveTodoApi, rejectTodoApi } from '@/lib/api';
+import { getToken } from '@/lib/auth';
+import { useAppStore } from '@/store/todoStore';
 import TodoItem from './TodoItem';
 import AddTodoModal from './AddTodoModal';
 import styles from './TodoList.module.css';
@@ -16,25 +15,22 @@ interface TodoListProps {
 }
 
 /**
- * Komponen utama daftar Todo (Client Component).
- * Mengelola search, CRUD operations, dan menampilkan semua todos.
+ * Komponen utama daftar Todo (Client Component) dengan dukungan RBAC.
+ * Mengelola search, CRUD (Maker), Approve/Reject (Checker), dan tampilan (Viewer).
  */
 export default function TodoList({ initialTodos, token, serverError }: TodoListProps) {
-  const router = useRouter();
-  const { todos, setTodos, addTodo, updateTodo, removeTodo, setAuth } = useTodoStore();
+  const { todos, setTodos, addTodo, updateTodo, canModify, canApprove } = useAppStore();
   const [search, setSearch] = useState('');
   const [showModal, setShowModal] = useState(false);
-  const [editingTodo, setEditingTodo] = useState<Todo | null>(null);
   const [error, setError] = useState(serverError || '');
+
+  const userCanModify = canModify();
+  const userCanApprove = canApprove();
 
   // Inisialisasi store dengan data awal dari server saat pertama mount
   useEffect(() => {
     setTodos(initialTodos);
-    const savedToken = getToken();
-    if (savedToken) {
-      setAuth(savedToken, '');
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   /**
@@ -48,7 +44,7 @@ export default function TodoList({ initialTodos, token, serverError }: TodoListP
   }, [todos, search]);
 
   /**
-   * Refresh daftar todos dari API (digunakan setelah CUD operations).
+   * Refresh daftar todos dari API.
    */
   async function refreshTodos() {
     try {
@@ -60,7 +56,7 @@ export default function TodoList({ initialTodos, token, serverError }: TodoListP
   }
 
   /**
-   * Menambahkan todo baru via API dan mengupdate state lokal.
+   * Menambahkan todo baru via API (hanya Maker).
    */
   async function handleAdd(title: string) {
     try {
@@ -74,53 +70,41 @@ export default function TodoList({ initialTodos, token, serverError }: TodoListP
   }
 
   /**
-   * Mengupdate todo yang ada (judul atau status) via API.
+   * Menyetujui todo yang PENDING via API (hanya Checker).
    */
-  async function handleUpdate(id: number, payload: Partial<{ title: string; is_completed: boolean }>) {
+  async function handleApprove(id: number) {
     try {
-      const updated = await updateTodoApi(token, id, payload);
-      updateTodo(updated);
+      const approved = await approveTodoApi(token, id);
+      updateTodo(approved);
       setError('');
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Gagal mengupdate todo.';
-      setError(msg);
-
-      // Jika token expired (401), redirect ke login
-      if (msg.includes('401') || msg.includes('Unauthenticated')) {
-        handleLogout();
-      }
-    }
-  }
-
-  /**
-   * Menghapus todo berdasarkan id via API.
-   */
-  async function handleDelete(id: number) {
-    try {
-      await deleteTodoApi(token, id);
-      removeTodo(id);
-      setError('');
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Gagal menghapus todo.';
+      const msg = err instanceof Error ? err.message : 'Gagal menyetujui todo.';
       setError(msg);
     }
   }
 
   /**
-   * Logout: hapus token dari cookie dan redirect ke halaman login.
+   * Menolak todo yang PENDING via API (hanya Checker).
    */
-  function handleLogout() {
-    removeToken();
-    router.push('/login');
+  async function handleReject(id: number) {
+    try {
+      const rejected = await rejectTodoApi(token, id);
+      updateTodo(rejected);
+      setError('');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Gagal menolak todo.';
+      setError(msg);
+    }
   }
 
-  // Hitung statistik todo
+  // Hitung statistik todo berdasarkan status
   const totalTodos = todos.length;
-  const completedTodos = todos.filter((t) => t.is_completed).length;
+  const approvedTodos = todos.filter((t) => t.status === 'APPROVED').length;
+  const pendingTodos = todos.filter((t) => t.status === 'PENDING').length;
 
   return (
     <div className={styles.container}>
-      {/* Header dengan judul dan tombol logout */}
+      {/* Header dengan judul dan statistik */}
       <div className={styles.header}>
         <div className={styles.headerLeft}>
           <div className={styles.logoIcon}>
@@ -132,25 +116,17 @@ export default function TodoList({ initialTodos, token, serverError }: TodoListP
           <div>
             <h1 className={styles.title}>Todo List</h1>
             <p className={styles.stats}>
-              {completedTodos} / {totalTodos} tugas selesai
+              {approvedTodos} disetujui · {pendingTodos} menunggu · {totalTodos} total
             </p>
           </div>
         </div>
-        <button id="logout-btn" onClick={handleLogout} className={styles.logoutBtn}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" />
-            <polyline points="16 17 21 12 16 7" />
-            <line x1="21" y1="12" x2="9" y2="12" />
-          </svg>
-          Logout
-        </button>
       </div>
 
-      {/* Progress bar */}
+      {/* Progress bar berdasarkan approved */}
       <div className={styles.progressBar}>
         <div
           className={styles.progressFill}
-          style={{ width: totalTodos > 0 ? `${(completedTodos / totalTodos) * 100}%` : '0%' }}
+          style={{ width: totalTodos > 0 ? `${(approvedTodos / totalTodos) * 100}%` : '0%' }}
         />
       </div>
 
@@ -181,16 +157,28 @@ export default function TodoList({ initialTodos, token, serverError }: TodoListP
             <button onClick={() => setSearch('')} className={styles.clearSearch}>×</button>
           )}
         </div>
-        <button
-          id="add-todo-btn"
-          onClick={() => { setEditingTodo(null); setShowModal(true); }}
-          className={styles.addBtn}
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="12" y1="5" x2="12" y2="19" />
-            <line x1="5" y1="12" x2="19" y2="12" />
+
+        {/* Tombol Tambah — hanya tampil untuk Maker */}
+        {userCanModify && (
+          <button
+            id="add-todo-btn"
+            onClick={() => setShowModal(true)}
+            className={styles.addBtn}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+            Tambah Tugas
+          </button>
+        )}
+
+        {/* Tombol Refresh */}
+        <button onClick={refreshTodos} className={styles.refreshBtn} title="Refresh">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="23 4 23 10 17 10" />
+            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
           </svg>
-          Tambah Tugas
         </button>
       </div>
 
@@ -206,21 +194,22 @@ export default function TodoList({ initialTodos, token, serverError }: TodoListP
             <TodoItem
               key={todo.id}
               todo={todo}
-              onToggle={(id, val) => handleUpdate(id, { is_completed: val })}
-              onEdit={(todo) => { setEditingTodo(todo); setShowModal(true); }}
-              onDelete={handleDelete}
+              canModify={userCanModify}
+              canApprove={userCanApprove}
+              onApprove={handleApprove}
+              onReject={handleReject}
             />
           ))
         )}
       </div>
 
-      {/* Modal tambah/edit */}
+      {/* Modal tambah todo */}
       {showModal && (
         <AddTodoModal
-          editingTodo={editingTodo}
-          onClose={() => { setShowModal(false); setEditingTodo(null); }}
+          editingTodo={null}
+          onClose={() => setShowModal(false)}
           onAdd={handleAdd}
-          onUpdate={(id, title) => handleUpdate(id, { title })}
+          onUpdate={async (_id: number, _title: string) => {}}
         />
       )}
     </div>

@@ -29,12 +29,12 @@ export default async function DashboardPage() {
   }
 
   return (
-    <main className={styles.main}>
+    <div className={styles.pageWrapper}>
       <TodoList
         initialTodos={initialTodos}
         token={token}
         serverError={fetchError}
       />
-    </main>
+    </div>
   );
 }

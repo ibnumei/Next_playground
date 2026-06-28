@@ -185,6 +185,25 @@
   transform: translateY(0);
 }
 
+.refreshBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.6);
+  border-radius: 12px;
+  padding: 0.75rem;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+  flex-shrink: 0;
+}
+
+.refreshBtn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+}
+
 .todoList {
   display: flex;
   flex-direction: column;

@@ -30,13 +30,62 @@ export async function apiFetch(
   return response;
 }
 
+// ============================================================
+// Type Definitions
+// ============================================================
+
+/** Tipe Sub Menu yang dikembalikan dalam daftar menu */
+export interface SubMenuItem {
+  id: number;
+  code: string;
+  name: string;
+  path: string;
+  can_view: boolean;
+  can_modify: boolean;
+  can_approve: boolean;
+}
+
+/** Tipe Menu induk yang berisi daftar sub menu */
+export interface MenuItem {
+  id: number;
+  code: string;
+  name: string;
+  can_expand: boolean;
+  menu_order: number;
+  sub_menus: SubMenuItem[];
+}
+
+/** Tipe data user yang dikembalikan setelah login */
+export interface UserInfo {
+  id: number;
+  name: string;
+  email: string;
+  role: string;
+}
+
+/** Tipe Todo sesuai schema database dengan status Maker-Checker */
+export interface Todo {
+  id: number;
+  user_id: number;
+  title: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  is_completed: boolean;
+  created_at: string;
+  user?: { id: number; name: string; email: string };
+}
+
+// ============================================================
+// Auth API
+// ============================================================
+
 /**
- * Login ke API: mengirim username dan password, mendapatkan JWT token.
+ * Login ke API menggunakan email dan password.
+ * Mengembalikan JWT token, data user, dan struktur menu yang dapat diakses.
  */
-export async function loginApi(username: string, password: string) {
+export async function loginApi(email: string, password: string) {
   const res = await apiFetch('/auth/login', {
     method: 'POST',
-    body: JSON.stringify({ username, password }),
+    body: JSON.stringify({ email, password }),
   });
 
   const data = await res.json();
@@ -45,8 +94,26 @@ export async function loginApi(username: string, password: string) {
     throw new Error(data.message || 'Login gagal.');
   }
 
-  return data as { token: string; user: { id: number; username: string } };
+  return data as { token: string; user: UserInfo; menus: MenuItem[] };
 }
+
+// ============================================================
+// Menu API
+// ============================================================
+
+/**
+ * Mengambil hierarki menu berdasarkan role user yang sedang login.
+ */
+export async function fetchMenusApi(token: string) {
+  const res = await apiFetch('/menus', { method: 'GET' }, token);
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || 'Gagal mengambil menu.');
+  return data as MenuItem[];
+}
+
+// ============================================================
+// Todo API
+// ============================================================
 
 /**
  * Mengambil daftar todo dari API, dengan filter pencarian opsional.
@@ -61,7 +128,7 @@ export async function fetchTodosApi(token: string, search?: string) {
 }
 
 /**
- * Menambahkan todo baru ke API.
+ * Menambahkan todo baru ke API (hanya Maker dengan can_modify=true).
  */
 export async function createTodoApi(token: string, title: string) {
   const res = await apiFetch('/todos', {
@@ -102,11 +169,22 @@ export async function deleteTodoApi(token: string, id: number) {
   return data;
 }
 
-// Tipe Todo sesuai schema database
-export interface Todo {
-  id: number;
-  user_id: number;
-  title: string;
-  is_completed: boolean;
-  created_at: string;
+/**
+ * Menyetujui todo yang berstatus PENDING (hanya Checker dengan can_approve=true).
+ */
+export async function approveTodoApi(token: string, id: number) {
+  const res = await apiFetch(`/todos/${id}/approve`, { method: 'POST' }, token);
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || 'Gagal menyetujui todo.');
+  return data as Todo;
+}
+
+/**
+ * Menolak todo yang berstatus PENDING (hanya Checker dengan can_approve=true).
+ */
+export async function rejectTodoApi(token: string, id: number) {
+  const res = await apiFetch(`/todos/${id}/reject`, { method: 'POST' }, token);
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || 'Gagal menolak todo.');
+  return data as Todo;
 }

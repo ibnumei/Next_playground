@@ -1,19 +1,23 @@
 import { create } from 'zustand';
-import { Todo } from '@/lib/api';
+import { Todo, MenuItem, UserInfo } from '@/lib/api';
 
 /**
  * Interface yang mendefinisikan struktur state dan actions di Zustand store.
+ * Mencakup state auth (token, user info, role, menus) dan state todos.
  */
-interface TodoStore {
-  // State
-  todos: Todo[];
+interface AppStore {
+  // State auth
   token: string | null;
-  username: string | null;
+  user: UserInfo | null;
+  menus: MenuItem[];
   isLoading: boolean;
   error: string | null;
 
+  // State todos
+  todos: Todo[];
+
   // Actions untuk auth
-  setAuth: (token: string, username: string) => void;
+  setAuth: (token: string, user: UserInfo, menus: MenuItem[]) => void;
   clearAuth: () => void;
 
   // Actions untuk todos
@@ -25,28 +29,33 @@ interface TodoStore {
   // State helpers
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
+
+  // Computed helpers
+  canModify: () => boolean;
+  canApprove: () => boolean;
 }
 
 /**
- * Zustand store untuk mengelola state global: autentikasi dan daftar todos.
+ * Zustand store untuk mengelola state global: autentikasi RBAC dan daftar todos.
  */
-export const useTodoStore = create<TodoStore>((set) => ({
+export const useAppStore = create<AppStore>((set, get) => ({
   // Initial state
-  todos: [],
   token: null,
-  username: null,
+  user: null,
+  menus: [],
+  todos: [],
   isLoading: false,
   error: null,
 
   /**
-   * Menyimpan token dan username setelah login berhasil.
+   * Menyimpan token, info user, dan daftar menu setelah login berhasil.
    */
-  setAuth: (token, username) => set({ token, username }),
+  setAuth: (token, user, menus) => set({ token, user, menus }),
 
   /**
-   * Menghapus auth state saat logout.
+   * Menghapus seluruh auth state saat logout.
    */
-  clearAuth: () => set({ token: null, username: null, todos: [] }),
+  clearAuth: () => set({ token: null, user: null, menus: [], todos: [] }),
 
   /**
    * Mengganti seluruh daftar todos dengan data baru dari API.
@@ -81,4 +90,25 @@ export const useTodoStore = create<TodoStore>((set) => ({
    * Mengatur pesan error untuk ditampilkan ke user.
    */
   setError: (error) => set({ error }),
+
+  /**
+   * Helper: mengecek apakah user saat ini memiliki izin modifikasi (can_modify).
+   * Berdasarkan role: Maker = true, Checker = true, Viewer = false.
+   */
+  canModify: () => {
+    const { user } = get();
+    return user?.role === 'Maker';
+  },
+
+  /**
+   * Helper: mengecek apakah user saat ini memiliki izin approval (can_approve).
+   * Berdasarkan role: Checker = true, yang lain = false.
+   */
+  canApprove: () => {
+    const { user } = get();
+    return user?.role === 'Checker';
+  },
 }));
+
+// Re-export legacy alias untuk backward compat
+export const useTodoStore = useAppStore;
