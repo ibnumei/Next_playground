@@ -188,3 +188,63 @@ export async function rejectTodoApi(token: string, id: number) {
   if (!res.ok) throw new Error(data.message || 'Gagal menolak todo.');
   return data as Todo;
 }
+
+// ============================================================
+// User API
+// ============================================================
+
+/** Tipe data user yang dikembalikan oleh endpoint GET /api/users */
+export interface UserRecord {
+  id: number;
+  name: string;
+  email: string;
+  status: string;
+  approval_status: string;
+  role_name: string | null;
+}
+
+/** Meta informasi paginasi dari backend */
+export interface PaginationMeta {
+  total: number;
+  per_page: number;
+  current_page: number;
+  last_page: number;
+  from: number;
+  to: number;
+}
+
+/** Response paginasi yang mencakup data dan meta */
+export interface PaginatedUsers {
+  data: UserRecord[];
+  meta: PaginationMeta;
+}
+
+/** Parameter filter opsional untuk pencarian user */
+export interface UserFilters {
+  name?: string;
+  email?: string;
+  status?: string;
+  approval_status?: string;
+}
+
+/**
+ * Mengambil daftar user dari API dengan filter opsional dan paginasi.
+ * Filter yang kosong tidak akan dikirim ke backend.
+ * @param page Nomor halaman (default: 1)
+ */
+export async function fetchUsersApi(token: string, filters?: UserFilters, page = 1) {
+  const params = new URLSearchParams();
+
+  if (filters?.name)            params.set('name', filters.name);
+  if (filters?.email)           params.set('email', filters.email);
+  if (filters?.status)          params.set('status', filters.status);
+  if (filters?.approval_status) params.set('approval_status', filters.approval_status);
+  params.set('page', String(page));
+
+  const query = `?${params.toString()}`;
+  const res   = await apiFetch(`/users${query}`, { method: 'GET' }, token);
+  const data  = await res.json();
+
+  if (!res.ok) throw new Error(data.message || 'Gagal mengambil data user.');
+  return data as PaginatedUsers;
+}

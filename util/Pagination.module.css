@@ -1,0 +1,76 @@
+/* ============================================================
+   Pagination Component — CSS Module
+   Dapat digunakan bersama komponen Pagination di folder util.
+   ============================================================ */
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.5rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.paginationInfo {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.4);
+  white-space: nowrap;
+}
+
+.paginationControls {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.pageBtn {
+  min-width: 34px;
+  height: 34px;
+  padding: 0 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 7px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.pageBtn:hover:not(:disabled) {
+  background: rgba(102, 126, 234, 0.2);
+  color: #a5b4fc;
+  border-color: rgba(102, 126, 234, 0.35);
+}
+
+.pageBtn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.pageBtnActive {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: #fff;
+  border-color: transparent;
+}
+
+.pageBtnActive:hover:not(:disabled) {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  opacity: 0.9;
+}
+
+.pageEllipsis {
+  min-width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.3);
+  font-size: 0.82rem;
+}
