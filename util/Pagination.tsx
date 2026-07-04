@@ -1,6 +1,6 @@
 'use client';
 
-import { buildPageRange } from './pagination';
+import { buildPageRange } from './paginationUtils';
 import styles from './Pagination.module.css';
 
 /** Props yang dibutuhkan komponen Pagination */
