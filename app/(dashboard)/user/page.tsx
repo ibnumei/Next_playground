@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAppStore } from '@/store/todoStore';
 import { fetchUsersApi, UserRecord, UserFilters, PaginationMeta } from '@/lib/api';
 import Pagination from '@/util/Pagination';
@@ -11,9 +12,23 @@ import styles from './user.module.css';
 /**
  * Halaman User Management.
  * Menampilkan panel filter dan tabel data user dengan paginasi (10 per halaman).
+ *
+ * Tombol "Add User" hanya ditampilkan jika user yang login memiliki
+ * can_modify = true pada sub menu USER (dari ROLE_SUB_MENU).
+ * Data yang di-add tidak langsung masuk ke tabel User, melainkan ke
+ * tabel approval_maintenance dengan status WAITING_FOR_APPROVAL.
  */
-export default function UserPage() {
-  const { token } = useAppStore();
+function UserPageContent() {
+  const router  = useRouter();
+  const params  = useSearchParams();
+  const { token, menus } = useAppStore();
+
+  // ── Hitung permission can_modify untuk sub menu USER dari store ──
+  // menus sudah berisi data dari ROLE_SUB_MENU berdasarkan role user yang login
+  const userSubMenuPermission = menus
+    .flatMap((m) => m.sub_menus)
+    .find((sm) => sm.code === 'USER');
+  const canModify = userSubMenuPermission?.can_modify === true;
 
   // ── Filter state ──
   const [filterName,           setFilterName]           = useState('');
@@ -30,6 +45,21 @@ export default function UserPage() {
 
   // Filter yang sedang aktif (dikunci saat Search diklik)
   const [activeFilters, setActiveFilters] = useState<UserFilters>({});
+
+  // ── Success notification (ditampilkan setelah redirect dari halaman add) ──
+  const [successMessage,  setSuccessMessage]  = useState<string | null>(null);
+
+  // Deteksi query param ?added=1 yang dikirim dari halaman Add User setelah berhasil
+  useEffect(() => {
+    if (params.get('added') === '1') {
+      setSuccessMessage('✅ Request penambahan user berhasil diajukan dan sedang menunggu persetujuan.');
+      // Hapus query param dari URL tanpa reload halaman
+      router.replace('/user');
+      // Auto-hide setelah 5 detik
+      setTimeout(() => setSuccessMessage(null), 5000);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   /**
    * Mengambil data user dari API berdasarkan filter aktif dan halaman saat ini.
@@ -85,6 +115,11 @@ export default function UserPage() {
     loadUsers(activeFilters, page);
   }
 
+  /** Navigasi ke halaman add user. */
+  function handleAddUser() {
+    router.push('/user/add');
+  }
+
   // ── Helpers ──
   function getStatusLabel(status: string)         { return status === 'A' ? 'Active' : status === 'I' ? 'Inactive' : status; }
   function getStatusBadgeClass(status: string)    { return status === 'A' ? styles.badgeActive : status === 'I' ? styles.badgeInactive : styles.badgeOther; }
@@ -96,6 +131,13 @@ export default function UserPage() {
   return (
     <div className={styles.page}>
 
+      {/* ── Success Notification ── */}
+      {successMessage && (
+        <div className={styles.successNotif} role="status">
+          {successMessage}
+        </div>
+      )}
+
       {/* ── Header ── */}
       <div className={styles.header}>
         <div className={styles.headerLeft}>
@@ -106,10 +148,20 @@ export default function UserPage() {
           </div>
         </div>
 
-        <button id="user-add-btn" className={styles.addBtn} onClick={() => {}}>
-          <span className={styles.addIcon}>＋</span>
-          Add User
-        </button>
+        {/*
+          Tombol Add User hanya ditampilkan jika can_modify = true pada sub menu USER.
+          Permission diambil dari store (data ROLE_SUB_MENU yang sudah di-load saat login).
+        */}
+        {canModify && (
+          <button
+            id="user-add-btn"
+            className={styles.addBtn}
+            onClick={handleAddUser}
+          >
+            <span className={styles.addIcon}>＋</span>
+            Add User
+          </button>
+        )}
       </div>
 
       {/* ── Filter Panel ── */}
@@ -303,3 +355,10 @@ export default function UserPage() {
   );
 }
 
+export default function UserPage() {
+  return (
+    <Suspense>
+      <UserPageContent />
+    </Suspense>
+  );
+}

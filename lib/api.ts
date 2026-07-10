@@ -248,3 +248,38 @@ export async function fetchUsersApi(token: string, filters?: UserFilters, page =
   if (!res.ok) throw new Error(data.message || 'Gagal mengambil data user.');
   return data as PaginatedUsers;
 }
+
+/** Payload untuk request penambahan user baru */
+export interface AddUserPayload {
+  name: string;
+  email: string;
+  password: string;
+  role_id: number;
+}
+
+/** Response dari backend setelah request Add User berhasil */
+export interface ApprovalRecord {
+  id: number;
+  module: string;
+  action: string;
+  status: string;
+  created_by: string;
+  created_at: string;
+}
+
+/**
+ * Mengajukan request penambahan user baru.
+ * Data tidak langsung masuk ke tabel User, melainkan ke approval_maintenance
+ * dengan status WAITING_FOR_APPROVAL.
+ * Hanya dapat dilakukan oleh user dengan can_modify = true pada sub menu USER.
+ */
+export async function createUserRequestApi(token: string, payload: AddUserPayload) {
+  const res = await apiFetch('/users', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  }, token);
+
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || 'Gagal mengajukan request penambahan user.');
+  return data as { message: string; data: ApprovalRecord };
+}
