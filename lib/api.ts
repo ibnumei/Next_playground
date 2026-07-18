@@ -267,6 +267,54 @@ export interface ApprovalRecord {
   created_at: string;
 }
 
+// ============================================================
+// Role API
+// ============================================================
+
+/** Tipe data role yang dikembalikan oleh endpoint GET /api/roles */
+export interface RoleRecord {
+  id: number;
+  name: string;
+  description: string | null;
+  status: string;
+  approval_status: string;
+  created_date: string | null;
+  created_by: string | null;
+  updated_date: string | null;
+  updated_by: string | null;
+}
+
+/** Response paginasi yang mencakup data role dan meta */
+export interface PaginatedRoles {
+  data: RoleRecord[];
+  meta: PaginationMeta;
+}
+
+/** Parameter filter opsional untuk pencarian role */
+export interface RoleFilters {
+  name?: string;
+  status?: string;
+}
+
+/**
+ * Mengambil daftar role dari API dengan filter opsional dan paginasi.
+ * @param page Nomor halaman (default: 1)
+ */
+export async function fetchRolesApi(token: string, filters?: RoleFilters, page = 1) {
+  const params = new URLSearchParams();
+
+  if (filters?.name)   params.set('name', filters.name);
+  if (filters?.status) params.set('status', filters.status);
+  params.set('page', String(page));
+
+  const query = `?${params.toString()}`;
+  const res   = await apiFetch(`/roles${query}`, { method: 'GET' }, token);
+  const data  = await res.json();
+
+  if (!res.ok) throw new Error(data.message || 'Gagal mengambil data role.');
+  return data as PaginatedRoles;
+}
+
 /**
  * Mengajukan request penambahan user baru.
  * Data tidak langsung masuk ke tabel User, melainkan ke approval_maintenance

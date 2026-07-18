@@ -15,8 +15,6 @@ import styles from './user.module.css';
  *
  * Tombol "Add User" hanya ditampilkan jika user yang login memiliki
  * can_modify = true pada sub menu USER (dari ROLE_SUB_MENU).
- * Data yang di-add tidak langsung masuk ke tabel User, melainkan ke
- * tabel approval_maintenance dengan status WAITING_FOR_APPROVAL.
  */
 function UserPageContent() {
   const router  = useRouter();
